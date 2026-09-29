@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - ../../probe
+labels:
+  - pairs:
+      con339.io/cluster: use1-02
+patches:
+  # The probe's cluster name. Set once at show-start and never changed, so it
+  # never restarts a pod mid-demo. It carries the ClusterName dimension on
+  # every CON339 metric, which is how the alarms tell the clusters apart.
+  - path: probe-cluster.yaml
+  # The release slot. At show-start this is a no-op patch. A fault release
+  # replaces this one file, and the fix restores it.
+  - path: release.yaml

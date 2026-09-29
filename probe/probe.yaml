@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: probe-config
+  namespace: con339-probe
+data:
+  # cluster-name must be set to the real cluster (use1-01 .. use1-08) when
+  # this directory is applied to a cluster.
+  cluster-name: unset
+  metric-namespace: CON339
+  region: us-east-1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: probe-script
+  namespace: con339-probe
+data:
+  probe.sh: |
+    #!/bin/bash
+    # Publishes HttpHealthy and DnsSuccess every 10s as an explicit 1 or 0.
+    BASE="http://con339-app.con339.svc.cluster.local"
+    while true; do
+      h=0; d=0
+      [ "$(curl -s -o /dev/null -m 3 -w '%{http_code}' "$BASE/healthz")" = "200" ] && h=1
+      [ "$(curl -s -o /dev/null -m 5 -w '%{http_code}' "$BASE/dns")" = "200" ] && d=1
+      aws cloudwatch put-metric-data --region "$AWS_REGION" \
+        --namespace "$METRIC_NAMESPACE" \
+        --metric-data \
+          "MetricName=HttpHealthy,Value=$h,Unit=Count,StorageResolution=1,Dimensions=[{Name=ClusterName,Value=$CLUSTER_NAME}]" \
+          "MetricName=DnsSuccess,Value=$d,Unit=Count,StorageResolution=1,Dimensions=[{Name=ClusterName,Value=$CLUSTER_NAME}]" \
+        || echo "put-metric-data failed"
+      echo "HttpHealthy=$h DnsSuccess=$d"
+      sleep 10
+    done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: probe
+  namespace: con339-probe
+  labels:
+    app: probe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: probe
+  template:
+    metadata:
+      labels:
+        app: probe
+    spec:
+      serviceAccountName: probe
+      containers:
+        - name: probe
+          image: amazon/aws-cli:2.17.40
+          command: ["/bin/bash", "/probe/probe.sh"]
+          env:
+            - name: CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: probe-config
+                  key: cluster-name
+            - name: METRIC_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: probe-config
+                  key: metric-namespace
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: probe-config
+                  key: region
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: script
+              mountPath: /probe
+      volumes:
+        - name: script
+          configMap:
+            name: probe-script
+            defaultMode: 0755
