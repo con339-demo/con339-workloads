@@ -1,9 +1,16 @@
-# Baseline release patch: a no-op label. Fault releases replace this file;
-# reverting restores exactly this content.
-apiVersion: v1
-kind: ConfigMap
+# Release A: memory. Cuts the app memory limit from 512Mi to 64Mi, which the
+# Python interpreter cannot fit, so containers are OOMKilled and the pods enter
+# CrashLoopBackOff. status_replicas_unavailable goes above zero.
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: con339-release
+  name: con339-app
   namespace: con339
-  labels:
-    con339.io/release: baseline
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          resources:
+            limits:
+              memory: 64Mi
