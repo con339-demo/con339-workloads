@@ -1,5 +1,5 @@
-# Baseline release patch for cell-028 (con339-ns-04 on use1-07): a no-op label.
-# Fault releases replace this file; reverting restores exactly this content.
+# The baseline. This is what overlays/<cluster>/release.yaml holds at show-start
+# and what a fix restores. A no-op label patch on the release ConfigMap.
 apiVersion: v1
 kind: ConfigMap
 metadata:
