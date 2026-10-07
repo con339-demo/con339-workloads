@@ -10,7 +10,10 @@ data:
     import time
     import urllib.request
 
-    URL = "http://con339-app.con339.svc.cluster.local/healthz"
+    # Bare service name on purpose. The pod's search domains resolve it inside
+    # whichever namespace this cell lands in, so one base works for every cell.
+    # A fully qualified name would pin every cell's loadgen at one namespace.
+    URL = "http://con339-app/healthz"
     PERIOD = 180
 
 
